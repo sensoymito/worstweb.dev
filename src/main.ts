@@ -1,60 +1,87 @@
-import './style.css'
-import heroImg from './assets/hero.png'
-import typescriptLogo from './assets/typescript.svg'
-import viteLogo from './assets/vite.svg'
-import { setupCounter } from './counter.ts'
+import Phaser from 'phaser';
 
-document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
-<section id="center">
-  <div class="hero">
-    <img src="${heroImg}" class="base" width="170" height="179">
-    <img src="${typescriptLogo}" class="framework" alt="TypeScript logo"/>
-    <img src="${viteLogo}" class="vite" alt="Vite logo" />
-  </div>
-  <div>
-    <h1>Get started</h1>
-    <p>Edit <code>src/main.ts</code> and save to test <code>HMR</code></p>
-  </div>
-  <button id="counter" type="button" class="counter"></button>
-</section>
+class GameScene extends Phaser.Scene {
+  private player!: Phaser.Physics.Arcade.Sprite;
+  private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
+  private platforms!: Phaser.Physics.Arcade.StaticGroup;
 
-<div class="ticks"></div>
+  constructor() {
+    super('GameScene');
+  }
 
-<section id="next-steps">
-  <div id="docs">
-    <svg class="icon" role="presentation" aria-hidden="true"><use href="/icons.svg#documentation-icon"></use></svg>
-    <h2>Documentation</h2>
-    <p>Your questions, answered</p>
-    <ul>
-      <li>
-        <a href="https://vite.dev/" target="_blank">
-          <img class="logo" src="${viteLogo}" alt="" />
-          Explore Vite
-        </a>
-      </li>
-      <li>
-        <a href="https://www.typescriptlang.org" target="_blank">
-          <img class="button-icon" src="${typescriptLogo}" alt="">
-          Learn more
-        </a>
-      </li>
-    </ul>
-  </div>
-  <div id="social">
-    <svg class="icon" role="presentation" aria-hidden="true"><use href="/icons.svg#social-icon"></use></svg>
-    <h2>Connect with us</h2>
-    <p>Join the Vite community</p>
-    <ul>
-      <li><a href="https://github.com/vitejs/vite" target="_blank"><svg class="button-icon" role="presentation" aria-hidden="true"><use href="/icons.svg#github-icon"></use></svg>GitHub</a></li>
-      <li><a href="https://chat.vite.dev/" target="_blank"><svg class="button-icon" role="presentation" aria-hidden="true"><use href="/icons.svg#discord-icon"></use></svg>Discord</a></li>
-      <li><a href="https://x.com/vite_js" target="_blank"><svg class="button-icon" role="presentation" aria-hidden="true"><use href="/icons.svg#x-icon"></use></svg>X.com</a></li>
-      <li><a href="https://bsky.app/profile/vite.dev" target="_blank"><svg class="button-icon" role="presentation" aria-hidden="true"><use href="/icons.svg#bluesky-icon"></use></svg>Bluesky</a></li>
-    </ul>
-  </div>
-</section>
+  preload() {
+    // アセットは使わず、色で長方形テクスチャを生成
+    this.make.graphics({ x: 0, y: 0, fillStyle: { color: 0x55ff55 } })
+      .fillRect(0, 0, 32, 48)
+      .generateTexture('player', 32, 48)
+      .destroy();
 
-<div class="ticks"></div>
-<section id="spacer"></section>
-`
+    this.make.graphics({ x: 0, y: 0, fillStyle: { color: 0x888888 } })
+      .fillRect(0, 0, 400, 32)
+      .generateTexture('ground', 400, 32)
+      .destroy();
 
-setupCounter(document.querySelector<HTMLButtonElement>('#counter')!)
+    this.make.graphics({ x: 0, y: 0, fillStyle: { color: 0x6666cc } })
+      .fillRect(0, 0, 80, 32)
+      .generateTexture('platform', 80, 32)
+      .destroy();
+  }
+
+  create() {
+    // 背景
+    this.add.rectangle(400, 300, 800, 600, 0x2233aa);
+
+    // 地面
+    this.platforms = this.physics.add.staticGroup();
+    this.platforms.add(this.add.rectangle(400, 584, 800, 32, 0x888888));
+    this.platforms.add(this.add.rectangle(600, 450, 80, 32, 0x6666cc));
+    this.platforms.add(this.add.rectangle(50, 350, 80, 32, 0x6666cc));
+
+    // プレイヤー
+    this.player = this.physics.add.sprite(100, 300, 'player');
+    this.player.setBounce(0.2);
+    this.player.setCollideWorldBounds(true);
+
+    // 衝突判定
+    this.physics.add.collider(this.player, this.platforms);
+
+    // キーボード入力
+    this.cursors = this.input.keyboard!.createCursorKeys();
+
+    // テキスト
+    this.add.text(10, 10, '矢印キーで移動', { fontSize: '16px', color: '#ffffff' });
+  }
+
+  update() {
+    // 左右移動
+    if (this.cursors.left.isDown) {
+      this.player.setVelocityX(-160);
+    } else if (this.cursors.right.isDown) {
+      this.player.setVelocityX(160);
+    } else {
+      this.player.setVelocityX(0);
+    }
+
+    // ジャンプ（接地中のみ）
+    if (this.cursors.up.isDown && this.player.body!.touching.down) {
+      this.player.setVelocityY(-330);
+    }
+  }
+}
+
+const config: Phaser.Types.Core.GameConfig = {
+  type: Phaser.AUTO,
+  width: 800,
+  height: 600,
+  parent: 'app',
+  physics: {
+    default: 'arcade',
+    arcade: {
+      gravity: { x: 0, y: 300 },
+      debug: false,
+    },
+  },
+  scene: [GameScene],
+};
+
+new Phaser.Game(config);
