@@ -101,7 +101,7 @@ k.scene("main", () => {
       if (cell.isRevealed || cell.isFlagged) return
       cell.isRevealed = true
       if (cell.isBomb) {
-        cell.use(k.sprite("bomb"))
+        cell.use(k.color(k.RED))
       } else {
         cell.use(k.sprite(NUMBER_SPRITES[cell.neighborBombs]))
       }
