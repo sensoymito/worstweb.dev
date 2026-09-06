@@ -2,6 +2,10 @@ import kaplay, { type GameObj } from "kaplay"
 
 const k = kaplay()
 
+k.setBackground(k.WHITE)
+
+window.addEventListener("contextmenu", (e) => e.preventDefault())
+
 const cells = import.meta.glob("./assets/cells/*.png", {
   eager: true,
   import: "default",
@@ -12,7 +16,8 @@ for (const [path, url] of Object.entries(cells)) {
   k.loadSprite(name, url)
 }
 
-const NUMBER_SPRITES: Record<number, string> = {
+
+const number_sprites: Record<number, string> = {
   0: "open",
   1: "one",
   2: "two",
@@ -24,101 +29,121 @@ const NUMBER_SPRITES: Record<number, string> = {
   8: "eight",
 }
 
-type Cell = GameObj & {
-  isBomb: boolean
-  neighborBombs: number
-  isRevealed: boolean
-  isFlagged: boolean
+const cellGrid: number = 9
+
+/**
+ * ダイスをamountまでランダムに振ります
+ * @returns 1-6までのダイスのスプライトを返します 
+ */
+function diceRoll(dice: GameObj, amount: number) {
+  const result = Math.floor(Math.random() * amount) + 1
+  dice.use(k.sprite(`dice${result}`))
 }
 
-function cellState(isBomb: boolean) {
-  return {
-    isBomb,
-    neighborBombs: 0,
-    isRevealed: false,
-    isFlagged: false,
-  }
+/**
+ * ダイスの目をセットします
+ * @returns numberの数のダイスのスプライトを返します
+ */
+function setDice(dice: GameObj, number: number) {
+  //if(number <= 0) return
+  dice.use(k.sprite(`dice${number}`))
+
 }
 
-function shuffleBomb(board: Cell[], amount: number) {
-  const indices = board.map((_, i) => i)
-  for (let i = indices.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1))
-    ;[indices[i], indices[j]] = [indices[j], indices[i]]
-  }
-  for (let i = 0; i < amount; i++) {
-    board[indices[i]].isBomb = true
+/**
+ * 
+ * 引数diceの出目を取得します
+ * @returns 1 || 2 || 3 || 4 || 5 || 6
+ */
+function getDice(dice: GameObj) {
+  switch (dice.sprite) {
+    case "dice0": return 0;
+    case "dice1": return 1;
+    case "dice2": return 2;
+    case "dice3": return 3;
+    case "dice4": return 4;
+    case "dice5": return 5;
+    case "dice6": return 6;
+    default: return 1
   }
 }
-
-function countNeighborBombs(board: Cell[], id: number, grid: number) {
-  const x = id % grid
-  const y = Math.floor(id / grid)
-  let count = 0
-  for (let dx = -1; dx <= 1; dx++) {
-    for (let dy = -1; dy <= 1; dy++) {
-      if (dx === 0 && dy === 0) continue
-      const nx = x + dx
-      const ny = y + dy
-      if (nx < 0 || nx >= grid || ny < 0 || ny >= grid) continue
-      const neighbor = board[ny * grid + nx]
-      if (neighbor.isBomb) count++
-    }
-  }
-  return count
-}
-
 k.scene("main", () => {
-  const board: Cell[] = []
-  const CELLGRID = 10
-  const BOMBS = 10
+  const dice = k.add([
+    k.pos(10 * 64 + 64, 64),
+    k.area(),
+    k.sprite("dice0")
+  ])
 
-  for (let x = 0; x < CELLGRID; x++) {
-    for (let y = 0; y < CELLGRID; y++) {
-      const id = y * CELLGRID + x
+  const board = []
+
+  for (let x = 0; x < cellGrid; x++) {
+    for (let y = 0; y < cellGrid; y++) {
+      const id = y * cellGrid + x
       const cell = k.add([
         k.sprite("hidden"),
-        k.scale(0.05),
-        k.pos(x * 64, y * 64),
+        k.pos(x * 64 + 64, y * 64 + 64),
         k.area(),
-        `cell`,
-        `cell${id}`,
-        cellState(false),
-      ]) as Cell
+        k.z(10),
+        k.opacity(0.5),
+        `cell${id}`
+      ])
 
       board[id] = cell
     }
   }
 
-  shuffleBomb(board, BOMBS)
+  k.add([
+    k.sprite("wall"), 
+    k.area(),
+    k.pos(32, 32),
+    k.z(0),
+  ])
 
-  for (let i = 0; i < board.length; i++) {
-    board[i].neighborBombs = countNeighborBombs(board, i, CELLGRID)
+
+  function setCellOpacity(cell: GameObj) {
+    if (cell.sprite === "hidden") {
+      cell.opacity = 0.5
+    } else {
+      cell.opacity = 1.5
+    }
   }
 
   for (const cell of board) {
-    cell.onClick(() => {
-      if (cell.isRevealed || cell.isFlagged) return
-      cell.isRevealed = true
-      if (cell.isBomb) {
-        cell.use(k.color(k.RED))
-      } else {
-        cell.use(k.sprite(NUMBER_SPRITES[cell.neighborBombs]))
+    cell.onMousePress("left", () => {
+      if (!cell.isHovering()) return
+      if (cell.sprite == "hidden" || cell.sprite == "open") {
+        cell.use(k.sprite(number_sprites[getDice(dice)]))
+        setDice(dice, 0)
+        setCellOpacity(cell)
       }
+    })
+
+    cell.onMousePress("right", () => {
+      if (!cell.isHovering()) return
+      if (cell.sprite === "frag" || cell.sprite == "open") {
+        cell.use(k.sprite("hidden"))
+      } else if (cell.sprite == "hidden") {
+        cell.use(k.sprite("frag"))
+      }
+      setCellOpacity(cell)
     })
 
     cell.onHover(() => {
-      if (!cell.isRevealed) {
-        cell.use(k.color(k.rgb(110, 110, 110)))
-      }
+      cell.use(k.color(k.rgb(182, 182, 182)))
+      cell.opacity = 1
     })
 
     cell.onHoverEnd(() => {
-      if (!cell.isRevealed) {
-        cell.use(k.color(k.WHITE))
-      }
+      cell.use(k.color(k.WHITE))
+      setCellOpacity(cell)
     })
   }
+
+  dice.onClick(() => {
+    if (dice.sprite == "dice0") {
+      diceRoll(dice, 6)
+    }
+  })
 })
 
-k.onLoad(() => k.go("main"))
+k.onLoad(() => k.go("main")) // => http://localhost:5173/
