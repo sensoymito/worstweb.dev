@@ -93,7 +93,7 @@ k.scene("main", () => {
   }
 
   k.add([
-    k.sprite("wall"), 
+    k.sprite("wall"),
     k.area(),
     k.pos(32, 32),
     k.z(0),
